@@ -1,0 +1,15 @@
+===== SYNC TEST START =====
+{
+    "time": "2026-05-10 18:24:18",
+    "http_code": 200,
+    "curl_error": null,
+    "wall_time_ms": 21921.51,
+    "server_execution_ms": 21613.93,
+    "response": {
+        "mode": "sync",
+        "orders": 50,
+        "sales": 1400,
+        "execution_time_ms": 21613.93
+    }
+}
+

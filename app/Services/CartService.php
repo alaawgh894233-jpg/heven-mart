@@ -3,129 +3,118 @@
 namespace App\Services;
 
 use App\Models\Cart;
-use App\Models\CartItem;
 use App\Models\Product;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
-use mysql_xdevapi\Exception;
 
 class CartService
 {
-    /**
-     * Create a new class instance.
-     */
-    public function __construct()
+    public function add(Cart $cart, Product $product, int $qty): bool
     {
+        if ($qty === 0) return false;
 
-    }
+        return DB::transaction(function () use ($cart, $product, $qty) {
 
-    public function get(Cart $cart, $lang)
-    {
-        $items = $cart->items()->with('product.primaryImage')->get();
+            $cart = Cart::where('id', $cart->id)->lockForUpdate()->first();
+            $product = Product::where('id', $product->id)->lockForUpdate()->first();
 
-        $products = $items->map(function ($item) use ($lang) {
-            return [
-                'id' => $item->product->id,
-                'name' => $item->product['name_'. $lang],
-                'description' => $item->product['description_'. $lang],
-                'price' => $item->product->price,
-                'image' => $item->product->primaryImage->url_image ?? null,
-                'quantity' => $item->quantity,
-            ];
-        });
 
-        return [
-            'total_price' => $cart->total_price,
-            'count_items' => $cart->quantity,
-            'products' => $products,
-        ];
-    }
+            if ($qty > 0) {
 
-    public function add(Cart $cart, Product $product, int $quantity): bool
-    {
-        if ($quantity < 1 || $quantity > $product->stock) {
-            return false;
-        }
+                if ($product->stock < $qty) {
+                    throw new \Exception("OUT_OF_STOCK");
+                }
 
-        $item = $cart->items()->where('product_id', $product->id)->first();
+                $item = $cart->items()
+                    ->where('product_id', $product->id)
+                    ->lockForUpdate()
+                    ->first();
 
-        if ($item) {
-            $newQty = $item->quantity + $quantity;
+                if ($item) {
+                    $item->quantity += $qty;
+                    $item->save();
+                } else {
+                    $cart->items()->create([
+                        'product_id' => $product->id,
+                        'quantity'   => $qty,
+                        'price'      => $product->price,
+                    ]);
+                }
 
-            if ($newQty > $product->stock) {
-                return false;
+                $product->stock -= $qty;
+                $product->save();
             }
 
-            $item->update(['quantity' => $newQty]);
-        } else {
-            $cart->items()->create([
-                'product_id' => $product->id,
-                'quantity'   => $quantity,
-//                'price'      => $product->price,
-            ]);
-        }
+            if ($qty < 0) {
 
-        $this->updateCartTotals($cart);
-        return true;
-    }
+                $item = $cart->items()
+                    ->where('product_id', $product->id)
+                    ->lockForUpdate()
+                    ->first();
 
-    public function decrement(Cart $cart, Product $product): bool
-    {
-        $item = $cart->items()->where('product_id', $product->id)->first();
+                if (!$item) return false;
 
-        if (!$item) {
-            return false;
-        }
+                $removeQty = min(abs($qty), $item->quantity);
 
-        if ($item->quantity <= 1) {
-            $item->delete();
-        } else {
-            $item->decrement('quantity');
-        }
+                $item->quantity -= $removeQty;
 
-        $this->updateCartTotals($cart);
-        return true;
+                if ($item->quantity <= 0) {
+                    $item->delete();
+                } else {
+                    $item->save();
+                }
+
+                $product->stock += $removeQty;
+                $product->save();
+            }
+
+            $cart->recalc();
+
+            return true;
+        });
     }
 
     public function delete(Cart $cart, Product $product): bool
     {
-        $item = $cart->items()->where('product_id', $product->id)->first();
+        return DB::transaction(function () use ($cart, $product) {
 
-        if ($item) {
+            $cart = Cart::where('id', $cart->id)->lockForUpdate()->first();
+            $product = Product::where('id', $product->id)->lockForUpdate()->first();
+
+            $item = $cart->items()->where('product_id', $product->id)->first();
+
+            if (!$item) return false;
+
+            $product->stock += $item->quantity;
+            $product->save();
+
             $item->delete();
-            $this->updateCartTotals($cart);
-            return true;
-        }
 
-        return false;
+            $cart->recalc();
+
+            return true;
+        });
     }
 
     public function clear(Cart $cart): bool
     {
-        $cart->items()->delete();
+        return DB::transaction(function () use ($cart) {
 
-        $cart->update([
-            'total_price' => 0,
-            'quantity' => 0,
-        ]);
+            $cart = Cart::where('id', $cart->id)->lockForUpdate()->first();
 
-        return true;
-    }
+            foreach ($cart->items as $item) {
+                $product = Product::where('id', $item->product_id)->lockForUpdate()->first();
+                $product->stock += $item->quantity;
+                $product->save();
+            }
 
+            $cart->items()->delete();
 
-    private function updateCartTotals(Cart $cart)
-    {
-        $totalPrice = $cart->items->sum(function ($item) {
-            return $item->quantity * $item->price;
+            $cart->update([
+                'total_price' => 0,
+                'quantity' => 0,
+            ]);
+
+            return true;
         });
-
-        $quantity = $cart->items->sum('quantity');
-
-        $cart->update([
-            'total_price' => $totalPrice,
-            'quantity'    => $quantity,
-        ]);
     }
 }

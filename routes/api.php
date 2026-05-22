@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\AddressController;
 use App\Http\Controllers\Auth\AuthController;
+use App\Http\Controllers\CacheController;
 use App\Http\Controllers\CartController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\FavoriteController;
@@ -10,6 +11,7 @@ use App\Http\Controllers\ProductController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\StoreController;
 use App\Http\Controllers\StoreFollowerController;
+use App\Http\Controllers\TestController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Kreait\Firebase\Factory;
@@ -19,13 +21,20 @@ use App\Http\Controllers\AttributeController;
 use App\Http\Controllers\BrandController;
 use App\Http\Controllers\AttributeOptionController;
 
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\DB;
+use App\Models\Order;
+use App\Models\Product;
+
+
 Route::get('/user', function (Request $request) {
     return $request->user();
 })->middleware('auth:sanctum');
 
 Route::get(' ',[StoreController::class,'getAddressFromCoordinates']);
 
-Route::post('register' , [AuthController::class , 'register']);
+Route::post('/register', [AuthController::class, 'register']);
+//    ->middleware('throttle:5,1');
 Route::post('verify-otp', [AuthController::class , 'verifyByOtp']);
 Route::post('resend-otp', [AuthController::class , 'resendOTP']);
 Route::post('login' , [AuthController::class , 'login']);
@@ -83,14 +92,14 @@ Route::prefix('attributes')->group(function () {
 
 
 Route::prefix('brands')->group(function () {
-    Route::get('/', [BrandController::class, 'indexAdmin']);                      // قائمة الماركات
-    Route::post('/', [BrandController::class, 'store']);                          // إنشاء ماركة
+    Route::get('/', [BrandController::class, 'indexAdmin']);
+    Route::post('/', [BrandController::class, 'store']);
 
-    Route::post('/{brand}/update', [BrandController::class, 'update']);          // ✅ تعديل ماركة
-    Route::post('/{brand}/toggle-status', [BrandController::class, 'toggleStatus']); // ✅ تفعيل/تعطيل
+    Route::post('/{brand}/update', [BrandController::class, 'update']);
+    Route::post('/{brand}/toggle-status', [BrandController::class, 'toggleStatus']);
 
-    Route::delete('/{brand}', [BrandController::class, 'destroy']);              // حذف
-    Route::get('/{brand}', [BrandController::class, 'show']);                    // عرض ماركة
+    Route::delete('/{brand}', [BrandController::class, 'destroy']);
+    Route::get('/{brand}', [BrandController::class, 'show']);
 });
 Route::get('public/brands', [BrandController::class, 'indexUser']);
 
@@ -146,13 +155,33 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('stores/follow/{storeId}', [StoreFollowerController::class, 'follow']);
     Route::delete('stores/unfollow/{storeId}', [StoreFollowerController::class, 'unfollow']);
 //    Route::get('stores/followers', [StoreFollowerController::class, 'view']);
+});
+Route::middleware([
+    'auth:sanctum',
+    'logging.aspect'
+])->group(function () {
 
+    // orders
     Route::get('orders', [OrderController::class, 'index']);
-    Route::post('orders', [OrderController::class, 'store']);
+
+    Route::post('orders/{mode}', [OrderController::class, 'store']);
+
+    Route::post('orders/compare', [OrderController::class, 'compare']);
+
+    Route::post('process-sync', [OrderController::class, 'processWithoutBatch']);
+
+    Route::post('batch', [OrderController::class, 'batchProcess']);
+
+    Route::get('batch/{batchId}/status', [OrderController::class, 'batchStatus']);
+
     Route::put('orders/{order}', [OrderController::class, 'update']);
+
     Route::delete('orders/{order}', [OrderController::class, 'destroy']);
+
     Route::get('vendor/orders', [OrderController::class, 'vendorOrders']);
-    Route::post('orders/{order}/approve', [OrderController::class, 'approve']);
+
+    // Route::post('orders/{order}/approve',
+    //     [OrderController::class, 'approve']);
 });
 Route::middleware('auth:sanctum')->prefix('cart')->controller(CartController::class)->group(function () {
     Route::post('/addToCart/{productId}', [CartController::class, 'addToCart']);
@@ -196,15 +225,63 @@ Route::post('/send-notification', function(Request $request) {
     }
 });
 
-Route::middleware('auth:sanctum')->group(function () {
-    Route::get('attributes/', [AttributeController::class, 'index']);
-    Route::post('attributes/', [AttributeController::class, 'store']);
-    Route::put('attributes/{id}', [AttributeController::class, 'update']);
-    Route::delete('attributes/{id}', [AttributeController::class, 'destroy']);
+//Route::middleware('auth:sanctum')->group(function () {
+//    Route::get('attributes/', [AttributeController::class, 'index']);
+//    Route::post('attributes/', [AttributeController::class, 'store']);
+//    Route::put('attributes/{id}', [AttributeController::class, 'update']);
+//    Route::delete('attributes/{id}', [AttributeController::class, 'destroy']);
+//
+//    Route::post('addattributes/values', [AttributeController::class, 'addValue']);
+//    Route::get('attributes/value/pending', [AttributeController::class, 'pendingValues']);
+//    Route::put('attributes/value/approve/{id}', [AttributeController::class, 'approveValue']);
+//    Route::delete('attributes/value/{id}', [AttributeController::class, 'deleteValue']);
+//    Route::get('attributes/{attributeId}/values', [AttributeController::class, 'approvedValues']);
+//
+//
 
-    Route::post('addattributes/values', [AttributeController::class, 'addValue']);
-    Route::get('attributes/value/pending', [AttributeController::class, 'pendingValues']);
-    Route::put('attributes/value/approve/{id}', [AttributeController::class, 'approveValue']);
-    Route::delete('attributes/value/{id}', [AttributeController::class, 'deleteValue']);
-    Route::get('attributes/{attributeId}/values', [AttributeController::class, 'approvedValues']);
+Route::post('/test-order', function (Request $request) {
+
+    $user = auth()->user();
+
+    Log::info('REQUEST START', [
+        'user_id' => $user?->id,
+        'email' => auth()->user()->email,
+        'time' => microtime(true),
+    ]);
+
+
 });
+
+Route::get('/check-auth', function () {
+    return [
+        'user' => auth()->user(),
+        'check' => auth()->check(),
+    ];
+});
+//});
+
+Route::post('/load-test', function () {
+    return response()->json([
+        'server' => $_SERVER['SERVER_PORT'],
+        'time' => microtime(true)
+    ]);
+});
+
+
+
+
+
+
+
+
+
+Route::get('/no-cache/top-products', [TestController::class, 'topProductsNoCache']);
+Route::get('/no-cache/daily-report', [TestController::class, 'dailyReportNoCache']);
+Route::get('/no-cache/product/{id}', [TestController::class, 'productNoCache']);
+
+Route::get('/cache/top-products', [TestController::class, 'topProductsCache']);
+Route::get('/cache/daily-report', [TestController::class, 'dailyReportCache']);
+Route::get('/cache/product/{id}', [TestController::class, 'productCache']);
+
+
+Route::get('/clear-cache', [TestController::class, 'clearCache']);

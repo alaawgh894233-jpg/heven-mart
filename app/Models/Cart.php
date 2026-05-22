@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 class Cart extends Model
 {
     use HasFactory;
+
     protected $fillable = ['user_id', 'total_price', 'quantity'];
 
     public function items()
@@ -19,12 +20,14 @@ class Cart extends Model
     {
         return $this->belongsTo(User::class);
     }
-    public function updateTotalPrice()
+
+    public function recalc()
     {
-        $total = $this->items()->with('product')->get()
-            ->sum(fn($item) => $item->quantity * $item->product->price);
+        $this->load('items');
 
-        $this->update(['total_price' => $total]);
+        $this->update([
+            'total_price' => $this->items->sum(fn ($i) => $i->price * $i->quantity),
+            'quantity'    => $this->items->sum('quantity'),
+        ]);
     }
-
 }

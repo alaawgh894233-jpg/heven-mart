@@ -23,7 +23,10 @@ return new class extends Migration
             $table->integer('count_items');
             $table->decimal('delivery_charge', 10, 2)->nullable();
             $table->decimal('discount_coupon', 10, 2)->nullable();
-            $table->decimal('price', 10, 2);
+            $table->boolean('processed')->default(false);
+            $table->timestamp('processed_at')->nullable();
+
+//            $table->decimal('price', 10, 2);
             $table->timestamps();
         });
     }

@@ -6,10 +6,6 @@ use App\Models\AttributeValue;
 use App\Models\Product;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
-
-namespace Database\Seeders;
-
-
 use App\Models\Store;
 
 
@@ -18,7 +14,7 @@ class ProductSeeder extends Seeder
     public function run(): void
 {
     DB::statement('SET FOREIGN_KEY_CHECKS=0;');
-    Store::truncate(); // ← هذا يحذف كل المتاجر القديمة
+    Product::truncate(); // ← هذا يحذف كل المتاجر القديمة
     DB::statement('SET FOREIGN_KEY_CHECKS=1;');
 
         $products = [

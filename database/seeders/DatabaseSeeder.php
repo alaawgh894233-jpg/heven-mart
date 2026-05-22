@@ -17,10 +17,11 @@ class DatabaseSeeder extends Seeder
         $this->call([
 //            AttributeSeeder::class,
             BrandSeeder::class,
-//            CategorySeeder::class,
+            CategorySeeder::class,
             UserSeeder::class,
             StoreSeeder::class,
             ProductSeeder::class,
+            AddressSeeder::class,
             ]);
 
 //        Category::factory(20)->create();

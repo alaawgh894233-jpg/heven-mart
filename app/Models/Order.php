@@ -11,9 +11,11 @@ class Order extends Model
     protected $fillable = [
         'user_id', 'store_id', 'address_id', 'code', 'payment_method',
         'date', 'total_price', 'count_items', 'delivery_charge',
-        'discount_coupon', 'price'
+        'discount_coupon', 'price','processed','processed_at'
     ];
-
+    protected $casts = [
+        'processed' => 'boolean',
+    ];
     public function user() {
         return $this->belongsTo(User::class);
     }

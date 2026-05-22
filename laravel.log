@@ -1,0 +1,14 @@
+===== BATCH TEST START =====
+{
+    "event": "BATCH_REQUEST",
+    "time": "2026-05-10 00:19:22",
+    "http_code": 200,
+    "execution_sec": 0.3645,
+    "error": null,
+    "response": {
+        "status": "batch_started",
+        "batch_id": "a1bdca61-a2c6-46c9-9e62-bd8f4bf917a6",
+        "chunks": 2
+    }
+}
+

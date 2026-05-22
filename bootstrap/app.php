@@ -12,12 +12,23 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware) {
+
+        // هذا alias (فقط class)
         $middleware->alias([
-            'api' => [
-                \App\Http\Middleware\SetAppLanguage::class, // ← هذا السطر
-                'throttle:api',
-                \Illuminate\Routing\Middleware\SubstituteBindings::class,
-            ],
+            'set.lang' => \App\Http\Middleware\SetAppLanguage::class,
+//            'performance' => \App\Http\Middleware\PerformanceMiddleware::class,
+//            'error.handler' => \App\Http\Middleware\ErrorHandlerMiddleware::class,
+            'logging.aspect' =>
+                \App\Http\Middleware\LoggingAspect::class,
+        ]);
+
+        // هذا group (array مسموح)
+        $middleware->group('api', [
+            \App\Http\Middleware\SetAppLanguage::class,
+//            \App\Http\Middleware\PerformanceMiddleware::class,
+//            \App\Http\Middleware\ErrorHandlerMiddleware::class,
+//            'throttle:api',
+            \Illuminate\Routing\Middleware\SubstituteBindings::class,
 
 
         ]);
