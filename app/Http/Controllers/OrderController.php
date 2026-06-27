@@ -28,91 +28,49 @@ class OrderController extends Controller
     public function store(CreateOrderRequest $request, string $mode)
     {
         $requestId = (string) Str::uuid();
-
         if ($mode === 'before') {
-
             $start = microtime(true);
-
             $this->createUnsafeOrder($request);
-
             $time = round((microtime(true) - $start) * 1000, 2);
-
             return response()->json([
                 'mode' => 'before',
                 'request_id' => $requestId,
                 'time_ms' => $time
             ]);
         }
-
         $data = $request->validated();
-
         CreateOrderJob::dispatch(
             $data,
             auth()->id(),
             $requestId
         );
-
         return response()->json([
-            'mode' => 'after',
-            'request_id' => $requestId,
-            'status' => 'queued'
+            'status' => 'queued',
+            'server' => $_SERVER['SERVER_PORT'],   // ← وهون كمان
+            'request_id' => $requestId
         ]);
     }
 
     private function createUnsafeOrder($request)
     {
-
         $pending = Status::where('status_en', 'pending')->firstOrFail();
-
         $totalPrice = 0;
         $countItems = 0;
-
-
         foreach ($request->items as $item) {
-
             $product = Product::find($item['product_id']);
-
-            if (!$product) {
-                continue;
-            }
-
+            if (!$product) {continue;}
             $quantity = $item['quantity'];
-
             $totalPrice += $product->price * $quantity;
-            $countItems += $quantity;
-        }
-
-
-        $order = Order::create([
-            'user_id' => auth()->id(),
-            'store_id' => $request->store_id,
-            'address_id' => $request->address_id,
-            'payment_method' => $request->payment_method,
-            'status_id' => $pending->id,
-            'total_price' => $totalPrice,
-            'code' => 'ORD-' . uniqid(),
-            'date' => now(),
-            'count_items' => $countItems,
+            $countItems += $quantity;}
+        $order = Order::create(['user_id' => auth()->id(), 'store_id' => $request->store_id, 'address_id' => $request->address_id, 'payment_method' => $request->payment_method, 'status_id' => $pending->id, 'total_price' => $totalPrice, 'code' => 'ORD-' . uniqid(), 'date' => now(), 'count_items' => $countItems,
         ]);
-
         foreach ($request->items as $item) {
-
             $product = Product::find($item['product_id']);
-
-            if (!$product) {
-                continue;
-            }
-
+            if (!$product) {continue;}
             $product->stock -= $item['quantity'];
             $product->save();
-
-            usleep(200000);
-        }
-
-
-
-        return $order;
-    }
+            usleep(200000);}
+        return $order;}
 
     public function compare(CreateOrderRequest $request)
     {
@@ -144,39 +102,18 @@ class OrderController extends Controller
 
     public function batchProcess()
     {
-        $orderIds = Order::where('processed', false)
-            ->pluck('id')
-            ->toArray();
-
+        $orderIds = Order::where('processed', false)->pluck('id')->toArray();
         if (empty($orderIds)) {
-            return response()->json(['status' => 'nothing_to_process']);
-        }
-
+            return response()->json(['status' => 'nothing_to_process']);}
         $chunks = array_chunk($orderIds, 25);
-
         $jobs = [];
-
         foreach ($chunks as $chunk) {
-            $jobs[] = new ProcessOrdersChunkJob($chunk);
-        }
-
+            $jobs[] = new ProcessOrdersChunkJob($chunk);}
         $start = microtime(true);
-
-        $batch = Bus::batch($jobs)
-            ->name('orders-batch')
-
-            ->then(function ($batch) use ($start) {
-
+        $batch = Bus::batch($jobs)->name('orders-batch')->then(function ($batch) use ($start) {
                 $execution = round((microtime(true) - $start) * 1000, 2);
-
                 cache()->put("batch_time_{$batch->id}", $execution, 3600);
-
-                Log::info("BATCH_FINISHED", [
-                    'batch_id' => $batch->id,
-                    'execution_time_ms' => $execution
-                ]);
             })
-
             ->dispatch();
 
         return response()->json([
@@ -220,11 +157,11 @@ class OrderController extends Controller
 
             $hash = $order->id;
 
-            for ($i = 0; $i < 2000; $i++) {
+            for ($i = 0; $i < 100; $i++) {
                 $hash = hash('sha256', $hash . $i);
             }
 
-            for ($i = 0; $i < 200; $i++) {
+            for ($i = 0; $i < 100; $i++) {
                 DB::table('fake_logs')->insert([
                     'order_id' => $order->id,
                     'payload' => str_repeat('x', 2000),

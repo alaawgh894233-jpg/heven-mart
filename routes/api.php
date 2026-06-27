@@ -2,7 +2,6 @@
 
 use App\Http\Controllers\AddressController;
 use App\Http\Controllers\Auth\AuthController;
-use App\Http\Controllers\CacheController;
 use App\Http\Controllers\CartController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\FavoriteController;
@@ -12,6 +11,8 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\StoreController;
 use App\Http\Controllers\StoreFollowerController;
 use App\Http\Controllers\TestController;
+use App\Http\Middleware\JobLoggingMiddleware;
+use App\Http\Middleware\UserLockMiddleware;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Kreait\Firebase\Factory;
@@ -19,7 +20,6 @@ use Kreait\Firebase\Messaging\CloudMessage;
 use Kreait\Firebase\Messaging\Notification;
 use App\Http\Controllers\AttributeController;
 use App\Http\Controllers\BrandController;
-use App\Http\Controllers\AttributeOptionController;
 
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
@@ -33,8 +33,8 @@ Route::get('/user', function (Request $request) {
 
 Route::get(' ',[StoreController::class,'getAddressFromCoordinates']);
 
-Route::post('/register', [AuthController::class, 'register']);
-//    ->middleware('throttle:5,1');
+Route::post('/register', [AuthController::class, 'register'])
+    ->middleware('throttle:5,1');
 Route::post('verify-otp', [AuthController::class , 'verifyByOtp']);
 Route::post('resend-otp', [AuthController::class , 'resendOTP']);
 Route::post('login' , [AuthController::class , 'login']);
@@ -158,30 +158,37 @@ Route::middleware('auth:sanctum')->group(function () {
 });
 Route::middleware([
     'auth:sanctum',
-    'logging.aspect'
+    'logging.aspect',
+    'performance',
+    'error.handler',
+    'throttle:checkout'
 ])->group(function () {
-
     // orders
     Route::get('orders', [OrderController::class, 'index']);
-
-    Route::post('orders/{mode}', [OrderController::class, 'store']);
-
+    Route::post('orders/{mode}', [OrderController::class, 'store'])->middleware([
+    JobLoggingMiddleware::class,
+    UserLockMiddleware::class,
+]);
     Route::post('orders/compare', [OrderController::class, 'compare']);
-
     Route::post('process-sync', [OrderController::class, 'processWithoutBatch']);
-
     Route::post('batch', [OrderController::class, 'batchProcess']);
-
     Route::get('batch/{batchId}/status', [OrderController::class, 'batchStatus']);
-
     Route::put('orders/{order}', [OrderController::class, 'update']);
-
     Route::delete('orders/{order}', [OrderController::class, 'destroy']);
+
+
 
     Route::get('vendor/orders', [OrderController::class, 'vendorOrders']);
 
     // Route::post('orders/{order}/approve',
     //     [OrderController::class, 'approve']);
+});
+
+Route::get('/test', function () {
+    return [
+        'server' => config('app.server_name'),
+        'env' => env('APP_SERVER'),
+    ];
 });
 Route::middleware('auth:sanctum')->prefix('cart')->controller(CartController::class)->group(function () {
     Route::post('/addToCart/{productId}', [CartController::class, 'addToCart']);
@@ -279,7 +286,7 @@ Route::get('/no-cache/top-products', [TestController::class, 'topProductsNoCache
 Route::get('/no-cache/daily-report', [TestController::class, 'dailyReportNoCache']);
 Route::get('/no-cache/product/{id}', [TestController::class, 'productNoCache']);
 
-Route::get('/cache/top-products', [TestController::class, 'topProductsCache']);
+Route::get('/cache/top-products', [TestController::class, 'topProductsNoCache']);
 Route::get('/cache/daily-report', [TestController::class, 'dailyReportCache']);
 Route::get('/cache/product/{id}', [TestController::class, 'productCache']);
 

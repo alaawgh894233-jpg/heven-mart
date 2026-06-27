@@ -26,22 +26,16 @@ class ProcessOrdersChunkJob implements ShouldQueue
     public function handle()
     {
         $start = microtime(true);
-
         Log::info("CHUNK_START", [
             'count' => count($this->orderIds)
         ]);
-
         $orders = Order::whereIn('id', $this->orderIds)->get();
-
         if ($orders->isEmpty()) return;
-
         $total = $orders->sum('total_price');
-
         Order::whereIn('id', $this->orderIds)->update([
             'processed' => true,
             'processed_at' => now()
         ]);
-
         DB::table('daily_reports')->insert([
             'total_sales' => $total,
             'orders_count' => $orders->count(),

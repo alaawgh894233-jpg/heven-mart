@@ -240,17 +240,42 @@ class ProductService
             abort(403, 'Unauthorized');
         }
 
-        $product = Product::findOrFail($id);
-        $product->update(Arr::except($data, ['attributes', 'images']));
+        $version = $data['version'] ?? null;
 
-        // إزالة السمات السابقة ثم إعادة الربط
+        $product = Product::where('id', $id)
+            ->where('version', $version)
+            ->first();
+
+        if (!$product) {
+            abort(409, 'Product was modified by another user');
+        }
+
+        $product->update(
+            array_merge(
+                Arr::except($data, ['attributes', 'images', 'version']),
+                [
+                    'version' => $product->version + 1
+                ]
+            )
+        );
+
         $product->attributeValues()->detach();
-        $this->syncAttributes($product, $data['attributes'] ?? []);
 
-        // إضافة صور جديدة (اختياريًا يمكن حذف القديم إن أردت)
-        $this->saveImages($product, $images, $imagesMeta);
+        $this->syncAttributes(
+            $product,
+            $data['attributes'] ?? []
+        );
 
-        return $product->load(['images', 'attributeValues']);
+        $this->saveImages(
+            $product,
+            $images,
+            $imagesMeta
+        );
+
+        return $product->load([
+            'images',
+            'attributeValues'
+        ]);
     }
 
     public function deleteProduct($id)

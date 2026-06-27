@@ -1,6 +1,6 @@
 <?php
 
-$url = "http://127.0.0.1:8080/api/orders/after";
+$url = "http://127.0.0.1:8000/api/orders/after";
 
 $tokens = json_decode(
     file_get_contents("storage/app/test_tokens.json"),
@@ -62,7 +62,7 @@ do {
 $end = microtime(true);
 
 echo "====================================\n";
-echo " AFTER (LOAD TEST)\n";
+echo " AFTER \n";
 echo "====================================\n";
 
 foreach ($handles as $i => $ch) {
@@ -86,7 +86,7 @@ $time = ($end - $start) * 1000;
 $totalTime += $time;
 
 echo "TOTAL REQUESTS: {$requests}\n";
-echo "AVG AFTER LOAD: " .
+echo "AVG AFTER : " .
     round($totalTime / $requests, 2) .
     " ms\n";
 

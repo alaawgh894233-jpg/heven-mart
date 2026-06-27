@@ -28,6 +28,7 @@ return new class extends Migration
             $table->integer('num_of_purchase')->default(0);
             $table->enum('status', ['active', 'inactive','requested'])->default('active');
             $table->enum('enum', ['enables', 'disabled'])->default('enables');
+            $table->integer('version')->default(1);
             $table->boolean('is_featured')->default(false);
             $table->softDeletes();
             $table->timestamps();

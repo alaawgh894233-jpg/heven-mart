@@ -16,8 +16,8 @@ return Application::configure(basePath: dirname(__DIR__))
         // هذا alias (فقط class)
         $middleware->alias([
             'set.lang' => \App\Http\Middleware\SetAppLanguage::class,
-//            'performance' => \App\Http\Middleware\PerformanceMiddleware::class,
-//            'error.handler' => \App\Http\Middleware\ErrorHandlerMiddleware::class,
+            'performance' => \App\Http\Middleware\PerformanceMiddleware::class,
+            'error.handler' => \App\Http\Middleware\ErrorHandlerMiddleware::class,
             'logging.aspect' =>
                 \App\Http\Middleware\LoggingAspect::class,
         ]);
@@ -25,8 +25,10 @@ return Application::configure(basePath: dirname(__DIR__))
         // هذا group (array مسموح)
         $middleware->group('api', [
             \App\Http\Middleware\SetAppLanguage::class,
-//            \App\Http\Middleware\PerformanceMiddleware::class,
-//            \App\Http\Middleware\ErrorHandlerMiddleware::class,
+          \App\Http\Middleware\PerformanceMiddleware::class,
+            \App\Http\Middleware\ErrorHandlerMiddleware::class,
+            \App\Http\Middleware\LoggingAspect::class,
+
 //            'throttle:api',
             \Illuminate\Routing\Middleware\SubstituteBindings::class,
 
